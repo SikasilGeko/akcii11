@@ -7,9 +7,6 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
-
-    <link rel="stylesheet" href="main.css">
-
     <style>
         .table-header {
             background-color: orange;
@@ -54,34 +51,30 @@
             'RA', 'AI', 'CAN', 'CGC', 'CCL', 'CTRM', 'CLDT'
         ];
 
-        async function fetchStockData(symbol) {
+        async function fetchStockData(symbol, date) {
+            const formattedDate = date.replace(/-/g, ''); // Convert date to required format
             const profileUrl = `https://financialmodelingprep.com/api/v3/profile/${symbol}?apikey=${FMP_API_KEY}`;
-            const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${symbol}&token=${FINNHUB_API_KEY}`;
+            const historicalUrl = `https://financialmodelingprep.com/api/v3/historical-price-full/${symbol}?from=${date}&to=${date}&apikey=${FMP_API_KEY}`;
 
             try {
-                const [profileResponse, quoteResponse] = await Promise.all([
+                const [profileResponse, historicalResponse] = await Promise.all([
                     fetch(profileUrl),
-                    fetch(quoteUrl)
+                    fetch(historicalUrl)
                 ]);
 
-                if (!profileResponse.ok) {
-                    throw new Error('Profile Network response was not ok');
-                }
-                if (!quoteResponse.ok) {
-                    throw new Error('Quote Network response was not ok');
+                if (!profileResponse.ok || !historicalResponse.ok) {
+                    throw new Error('Network response was not ok');
                 }
 
                 const profileData = await profileResponse.json();
-                const quoteData = await quoteResponse.json();
-
-                console.log('Profile Data:', profileData); // Debugging line
-                console.log('Quote Data:', quoteData); // Debugging line
+                const historicalData = await historicalResponse.json();
+                const historicalPrice = historicalData.historical[0]?.close || 'N/A';
 
                 return {
                     ISIN: profileData[0]?.isin || 'N/A',
                     name: profileData[0]?.companyName || 'N/A',
                     currency: profileData[0]?.currency || 'N/A',
-                    close: quoteData.c || 'N/A'
+                    close: historicalPrice
                 };
             } catch (error) {
                 console.error('Error fetching stock data:', error);
@@ -94,11 +87,16 @@
             }
         }
 
-        async function populateTable() {
+        document.addEventListener('DOMContentLoaded', () => {
+            const date = '2024-06-28'; // Specify the date you need data for
+            populateTable(date);
+        });
+
+        async function populateTable(date) {
             const tableBody = document.getElementById('stockTable');
 
             for (let i = 0; i < symbols.length; i++) {
-                const stockData = await fetchStockData(symbols[i]);
+                const stockData = await fetchStockData(symbols[i], date);
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <th scope="row">${i + 1}</th>
@@ -110,11 +108,6 @@
                 tableBody.appendChild(row);
             }
         }
-
-        // Populate the table on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            populateTable();
-        });
     </script>
 </body>
 
